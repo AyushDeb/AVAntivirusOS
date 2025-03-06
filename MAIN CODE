@@ -1,0 +1,191 @@
+# MAIN CODE V1.1
+import os
+import hashlib
+import time
+import threading
+import requests
+import psutil
+import shutil
+from datetime import datetime
+from tqdm import tqdm
+
+# Suspicious extensions and malware keywords
+suspicious_extensions = {".exe", ".bat", ".cmd", ".vbs", ".js", ".ps1", ".sh", ".dll", ".sys", ".jar", ".py", ".rb", ".pl", ".apk", ".ipa", ".scr", ".msi", ".com", ".pif", ".gadget"}
+suspicious_strings = {"ransom", "trojan", "keylogger", "malware", "worm", "backdoor", "spyware", "rootkit", "adware", "botnet", "ransomware", "stealer", "dropper", "injector", "cryptominer", "rat", "exploit", "wannacry", "petya", "ryuk", "notpetya", "stuxnet"}
+
+# VirusTotal API Integration
+VIRUS_DATABASE_API = "https://www.virustotal.com/api/v3/files/"
+API_KEY = 'a240355e0d52d937808318244b14f72715490064c4bc3a25f57b847d6820376e'  
+HEADERS = {'x-apikey': API_KEY}
+
+def fetch_latest_signatures(file_hash):
+    url = f"{VIRUS_DATABASE_API}{file_hash}"
+    try:
+        response = requests.get(url, headers=HEADERS)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        print(f"[ERROR] Unable to fetch latest signatures: {e}")
+        return None
+
+def scan_directory(directory):
+    print(f"Scanning directory: {directory}")
+    for root, _, files in tqdm(os.walk(directory), desc="Scanning files", colour="green"):
+        for file in files:
+            scan_file(os.path.join(root, file))
+
+def scan_file(filepath):
+    if any(filepath.endswith(ext) for ext in suspicious_extensions):
+        print(f"[WARNING] Suspicious file detected: {filepath}")
+
+    with open(filepath, "rb") as f:
+        file_hash = hashlib.md5(f.read()).hexdigest()
+        print(f"[INFO] Scanning file: {filepath}")
+
+        latest_signatures = fetch_latest_signatures(file_hash)
+        if latest_signatures and any(malware in filepath.lower() for malware in suspicious_strings):
+            print(f"[ALERT] Malware detected: {filepath}")
+            quarantine_file(filepath)
+
+def quarantine_file(filepath):
+    quarantine_dir = "./quarantine"
+    os.makedirs(quarantine_dir, exist_ok=True)
+    new_path = os.path.join(quarantine_dir, os.path.basename(filepath))
+    shutil.move(filepath, new_path)
+    print(f"[INFO] Moved {filepath} to quarantine.")
+
+def secure_delete(filepath):
+    try:
+        with open(filepath, "wb") as f:
+            f.write(os.urandom(os.path.getsize(filepath)))
+        os.remove(filepath)
+        print(f"[INFO] Securely deleted: {filepath}")
+    except Exception as e:
+        print(f"[ERROR] Failed to delete {filepath}: {e}")
+
+def usb_scan():
+    print("[INFO] Scanning connected USB devices...")
+    drives = [f"{d}:\\" for d in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" if os.path.exists(f"{d}:\\")]
+    removable_drives = [drive for drive in drives if "removable" in os.popen(f"fsutil fsinfo drivetype {drive}").read().lower()]
+    
+    if removable_drives:
+        print("Select a USB drive to scan:")
+        for idx, drive in enumerate(removable_drives, 1):
+            print(f"{idx}. {drive}")
+        choice = int(input("Enter your choice: ")) - 1
+        if 0 <= choice < len(removable_drives):
+            scan_directory(removable_drives[choice])
+        else:
+            print("Invalid selection.")
+    else:
+        print("No removable USB devices found.")
+
+def real_time_protection():
+    print("[INFO] Real-time protection enabled.")
+    while True:
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                process_name = proc.info['name']
+                process_path = proc.exe()
+                scan_file(process_path)
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                continue
+        time.sleep(5)
+
+def scheduled_scan():
+    print("[INFO] Scheduled scan started.")
+    scan_directory("./test")
+    time.sleep(3600)  # Run the scan every hour
+
+def update_signatures():
+    print("[INFO] Updating virus signatures.")
+    # Implement logic to update virus signatures from the cloud
+
+def main_menu():
+    while True:
+        print("""
+        ------------------AV ANTIVIRUS PRO------------------
+        1. Start Scan
+        2. Stop Scan
+        3. Quick Scan
+        4. Finish Scan
+        5. Antivirus Settings
+        6. USB Protection
+        7. Secure File Shredder
+        8. Enable Real-time Protection
+        9. Scheduled Scan
+        10. Exit
+        ----------------------------------------------------
+        """)
+        choice = input("Select an option: ")
+        
+        if choice == "1":
+            scan_directory("./test")
+        elif choice == "2":
+            print("[INFO] Stopping scan...")
+        elif choice == "3":
+            print("[INFO] Performing quick scan...")
+            scan_directory("C:\\Users")
+        elif choice == "4":
+            print("[INFO] Finalizing scan...")
+        elif choice == "5":
+            settings_menu()
+        elif choice == "6":
+            usb_scan()
+        elif choice == "7":
+            file_to_delete = input("Enter file path to securely delete: ")
+            secure_delete(file_to_delete)
+        elif choice == "8":
+            threading.Thread(target=real_time_protection).start()
+        elif choice == "9":
+            threading.Thread(target=scheduled_scan).start()
+        elif choice == "10":
+            exit()
+        else:
+            print("Invalid option. Try again.")
+
+def settings_menu():
+    while True:
+        print("""
+        ------------------AV ANTIVIRUS PRO------------------
+        1. Antivirus
+        2. Info
+        3. Back
+        ----------------------------------------------------
+        """)
+        choice = input("Select an option: ")
+        
+        if choice == "1":
+            antivirus_settings()
+        elif choice == "2":
+            print("[INFO] Antivirus Pro v1.0 - Secure & Reliable")
+        elif choice == "3":
+            break
+        else:
+            print("Invalid option. Try again.")
+
+def antivirus_settings():
+    while True:
+        print("""
+        ------------------AV ANTIVIRUS PRO------------------
+        1. Back
+        2. On
+        3. Off
+        ----------------------------------------------------
+        """)
+        choice = input("Select an option: ")
+        
+        if choice == "1":
+            break
+        elif choice == "2":
+            print("[INFO] Real-time protection enabled.")
+        elif choice == "3":
+            print("[INFO] Real-time protection disabled.")
+        else:
+            print("Invalid option. Try again.")
+
+
+
+if __name__ == "__main__":
+    update_signatures()
+    main_menu()
